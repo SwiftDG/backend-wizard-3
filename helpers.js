@@ -62,20 +62,36 @@ export const generateSummaryImage = async () => {
 export const refreshCountries = async () => {
   const countries = await fetchCountries();
   const exchangeRates = await fetchExchangeRates();
-
   const connectionPromise = connection.promise();
-
   const now = new Date();
 
   for (let country of countries) {
     const currencyCode = country.currencies?.[0]?.code || null;
-    let exchangeRate = currencyCode ? exchangeRates[currencyCode] || null : null;
     const population = country.population || 0;
+
+    // Validation: Required fields
+    if (!country.name || !population || !currencyCode) {
+      console.error(`Validation failed for country: ${country.name || 'Unknown'}`);
+      console.error({
+        error: 'Validation failed',
+        details: {
+          ...(country.name ? {} : { name: 'is required' }),
+          ...(population ? {} : { population: 'is required' }),
+          ...(currencyCode ? {} : { currency_code: 'is required' })
+        }
+      });
+      continue; // Skip this country
+    }
+
+    let exchangeRate = exchangeRates[currencyCode] || null;
     let estimatedGDP = 0;
 
-    if (currencyCode && exchangeRate) {
+    if (exchangeRate) {
       const multiplier = Math.floor(Math.random() * (2000 - 1000 + 1)) + 1000;
-      estimatedGDP = population * multiplier / exchangeRate;
+      estimatedGDP = (population * multiplier) / exchangeRate;
+    } else {
+      exchangeRate = null;
+      estimatedGDP = 0;
     }
 
     const query = `
@@ -86,8 +102,10 @@ export const refreshCountries = async () => {
       capital=?, region=?, population=?, currency_code=?, exchange_rate=?, estimated_gdp=?, flag_url=?
     `;
     const params = [
-      country.name, country.capital || null, country.region || null, population, currencyCode, exchangeRate, estimatedGDP, country.flag || null,
-      country.capital || null, country.region || null, population, currencyCode, exchangeRate, estimatedGDP, country.flag || null
+      country.name, country.capital || null, country.region || null, population,
+      currencyCode, exchangeRate, estimatedGDP, country.flag || null,
+      country.capital || null, country.region || null, population,
+      currencyCode, exchangeRate, estimatedGDP, country.flag || null
     ];
 
     try {
