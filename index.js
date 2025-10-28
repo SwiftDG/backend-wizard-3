@@ -14,7 +14,10 @@ app.post('/countries/refresh', async (req, res) => {
     await refreshCountries();
     res.json({ message: 'Countries refreshed and summary image generated!' });
   } catch (err) {
-    res.status(503).json({ error: 'External data source unavailable', details: err.message });
+    res.status(503).json({
+      error: 'External data source unavailable',
+      details: err.message
+    });
   }
 });
 
@@ -23,57 +26,120 @@ app.get('/countries', async (req, res) => {
   const { region, currency, sort } = req.query;
   let sql = 'SELECT * FROM countries WHERE 1=1';
   const params = [];
-  if (region) { sql += ' AND region=?'; params.push(region); }
-  if (currency) { sql += ' AND currency_code=?'; params.push(currency); }
-  if (sort === 'gdp_desc') { sql += ' ORDER BY estimated_gdp DESC'; }
+
+  if (region) {
+    sql += ' AND region=?';
+    params.push(region);
+  }
+  if (currency) {
+    sql += ' AND currency_code=?';
+    params.push(currency);
+  }
+  if (sort === 'gdp_desc') {
+    sql += ' ORDER BY estimated_gdp DESC';
+  }
+
   try {
     const [rows] = await connection.promise().query(sql, params);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: err.message
+    });
   }
 });
 
 // GET /countries/:name
 app.get('/countries/:name', async (req, res) => {
   try {
-    const [rows] = await connection.promise().query('SELECT * FROM countries WHERE name=?', [req.params.name]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Country not found' });
+    const [rows] = await connection.promise().query(
+      'SELECT * FROM countries WHERE name=?',
+      [req.params.name]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Country not found' });
+    }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: err.message
+    });
   }
 });
 
 // DELETE /countries/:name
 app.delete('/countries/:name', async (req, res) => {
   try {
-    const [result] = await connection.promise().query('DELETE FROM countries WHERE name=?', [req.params.name]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Country not found' });
+    const [result] = await connection.promise().query(
+      'DELETE FROM countries WHERE name=?',
+      [req.params.name]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Country not found' });
+    }
     res.json({ message: 'Country deleted' });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: err.message
+    });
   }
 });
 
 // GET /status
 app.get('/status', async (req, res) => {
   try {
-    const [rows] = await connection.promise().query('SELECT COUNT(*) as total FROM countries');
+    const [rows] = await connection.promise().query(
+      'SELECT COUNT(*) as total FROM countries'
+    );
     const total = rows[0].total;
-    const [refreshRows] = await connection.promise().query('SELECT last_refreshed_at FROM refresh_log WHERE id=1');
+
+    const [refreshRows] = await connection.promise().query(
+      'SELECT last_refreshed_at FROM refresh_log WHERE id=1'
+    );
     const lastRefreshed = refreshRows[0]?.last_refreshed_at || null;
-    res.json({ total_countries: total, last_refreshed_at: lastRefreshed });
+
+    res.json({
+      total_countries: total,
+      last_refreshed_at: lastRefreshed
+    });
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: err.message
+    });
   }
 });
 
 // GET /countries/image
 app.get('/countries/image', (req, res) => {
   const imagePath = './cache/summary.png';
-  if (!fs.existsSync(imagePath)) return res.status(404).json({ error: 'Summary image not found' });
+  if (!fs.existsSync(imagePath)) {
+    return res.status(404).json({ error: 'Summary image not found' });
+  }
   res.sendFile(`${process.cwd()}/cache/summary.png`);
+});
+
+// POST /countries (Demo for 400 Validation)
+app.post('/countries', async (req, res) => {
+  const { name, population, currency_code } = req.body;
+
+  const errors = {};
+  if (!name) errors.name = 'is required';
+  if (!population) errors.population = 'is required';
+  if (!currency_code) errors.currency_code = 'is required';
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors
+    });
+  }
+
+  // Optional: insert logic here if needed
+  res.status(200).json({ message: 'Valid input received (demo only)' });
 });
 
 const PORT = process.env.PORT || 5000;
