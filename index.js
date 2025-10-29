@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import pool, { createTables } from './db.js';
 import { refreshCountries } from './helpers.js';
 import fs from 'fs';
+import path from 'path';  // Added for safer sendFile path
 
 dotenv.config();
 const app = express();
@@ -30,6 +31,7 @@ app.get('/countries', async (req, res) => {
   if (region) { sql += ' AND region = ?'; params.push(region); }
   if (currency) { sql += ' AND currency_code = ?'; params.push(currency); }
   if (sort === 'gdp_desc') sql += ' ORDER BY estimated_gdp DESC';
+  else sql += ' ORDER BY name ASC';  // Added default sort (spec implies asc)
   try {
     const [rows] = await pool.promise().query(sql, params);
     res.json(rows);
@@ -38,9 +40,21 @@ app.get('/countries', async (req, res) => {
   }
 });
 
+// IMAGE ROUTE FIRST (before :name params)
+app.get('/countries/image', (req, res) => {
+  const imagePath = path.join(process.cwd(), 'cache', 'summary.png');  // Safer abs path
+  if (!fs.existsSync(imagePath)) return res.status(404).json({ error: 'Summary image not found' });
+  res.sendFile(imagePath);
+});
+
+// THEN PARAM ROUTES (:name catches leftovers)
 app.get('/countries/:name', async (req, res) => {
   try {
-    const [rows] = await pool.promise().query('SELECT * FROM countries WHERE name = ?', [req.params.name]);
+    // Case-insensitive: LOWER(name) = LOWER(?)
+    const [rows] = await pool.promise().query(
+      'SELECT * FROM countries WHERE LOWER(name) = LOWER(?)', 
+      [req.params.name]
+    );
     if (rows.length === 0) return res.status(404).json({ error: 'Country not found' });
     res.json(rows[0]);
   } catch (err) {
@@ -50,7 +64,11 @@ app.get('/countries/:name', async (req, res) => {
 
 app.delete('/countries/:name', async (req, res) => {
   try {
-    const [result] = await pool.promise().query('DELETE FROM countries WHERE name = ?', [req.params.name]);
+    // Case-insensitive delete
+    const [result] = await pool.promise().query(
+      'DELETE FROM countries WHERE LOWER(name) = LOWER(?)', 
+      [req.params.name]
+    );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Country not found' });
     res.json({ message: 'Country deleted' });
   } catch (err) {
@@ -64,16 +82,12 @@ app.get('/status', async (req, res) => {
     const total = rows[0].total;
     const [refreshRows] = await pool.promise().query('SELECT last_refreshed_at FROM refresh_log WHERE id = 1');
     const lastRefreshed = refreshRows[0]?.last_refreshed_at || null;
-    res.json({ total_countries: total, last_refreshed_at: lastRefreshed });
+    // Format ISO if needed (your DB is DATETIME, but spec wants ISO string)
+    const isoTimestamp = lastRefreshed ? new Date(lastRefreshed).toISOString() : null;
+    res.json({ total_countries: total, last_refreshed_at: isoTimestamp });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error', details: err.message });
   }
-});
-
-app.get('/countries/image', (req, res) => {
-  const imagePath = './cache/summary.png';
-  if (!fs.existsSync(imagePath)) return res.status(404).json({ error: 'Summary image not found' });
-  res.sendFile(`${process.cwd()}/cache/summary.png`);
 });
 
 app.post('/countries', async (req, res) => {
