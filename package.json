@@ -1,0 +1,20 @@
+{
+  "name": "backend-wizard-3",
+  "version": "1.0.0",
+  "description": "1. Clone repo\r 2. `npm install`\r 3. Create `.env` with DB credentials\r 4. Start MySQL\r 5. Ensure database `country_currency_api` exists\r 6. Create `refresh_log` table with id=1:\r ```sql\r CREATE TABLE refresh_log (\r   id INT PRIMARY KEY,\r   last_refreshed_at DATETIME\r );\r INSERT INTO refresh_log (id, last_refreshed_at) VALUES (1, NOW());",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.1",
+    "canvas": "^3.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mysql2": "^3.15.3"
+  }
+}
