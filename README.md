@@ -22,8 +22,10 @@ A RESTful API that fetches country data from external APIs, stores it in MySQL, 
 
 1. Clone the repo
 `bash
-git clone https://github.com/SwiftDG/backend-wizard-3.git
-cd backend-wizard-3
+git clone https://github.com/SwiftDG/country-currency-exchange-api
+.git
+cd country-currency-exchange-api
+
 `
 
 2. Install dependencies
